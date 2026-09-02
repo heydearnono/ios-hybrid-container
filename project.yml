@@ -1,0 +1,58 @@
+# xcodegen 工程定义。
+#
+# .xcodeproj 是生成物，不入库（见 .gitignore）。AI 修改工程结构改这个文件，
+# 而不是去动几千行、满是 UUID 引用的 project.pbxproj。
+#
+# 重新生成：xcodegen generate
+name: AILab
+
+options:
+  bundleIdPrefix: dev.ailab
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "26.0"
+  minimumXcodeGenVersion: "2.46.0"
+
+packages:
+  AICore:
+    path: Packages/AICore
+  AIFeatures:
+    path: Packages/AIFeatures
+
+targets:
+  AILab:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: AICore
+        product: AICore
+      - package: AIFeatures
+        product: AIFeatures
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.ailab.AILab
+        PRODUCT_NAME: AILab
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: >-
+          UIInterfaceOrientationPortrait
+          UIInterfaceOrientationLandscapeLeft
+          UIInterfaceOrientationLandscapeRight
+        # 模拟器构建不需要签名。这样 CI 与 AI 都不会撞上需要人工处理的签名交互。
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+
+schemes:
+  AILab:
+    build:
+      targets:
+        AILab: all
+    run:
+      config: Debug
