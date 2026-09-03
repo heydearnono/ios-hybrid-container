@@ -15,7 +15,11 @@
 | Phase 0 调研 | ✅ 主要结论已成型 | 建立 iOS AI 能力地图，明确每条路径的能力/成本/限制 | `docs/` 笔记 + `docs/decisions/` |
 | Phase 1 最小验证 | ✅ 已建立方法 | 用单文件 `swiftc` + `simctl spawn` 验证 API 与运行时行为 | `spikes/` |
 | Phase 2 iOS 底座 | **进行中** | 可跑可测的 App 骨架 + 模型能力抽象层 + mock | `project.yml` / `Packages/` / `App/` |
-| Phase 3 接真实提供方 | 未开始 | 后端代理 + 云端提供方实现；端侧待环境解冻 | `Packages/AICore` 新增实现 |
+| Phase 3 接真实提供方 | **进行中** | 后端代理 + 云端提供方实现；端侧待环境解冻 | `Packages/AICore` 新增实现 |
+
+Phase 3 当前进度：云端**传输层已实现并测试**（真 `URLSession` + 真 SSE，打本地 stub 服务器验证，
+见 [`docs/03-cloud-llm/streaming-in-swift.md`](docs/03-cloud-llm/streaming-in-swift.md) 与 ADR 002）。
+但**默认装配仍是 mock** —— 后端代理不存在，`baseURL` 无处可指。未做：断线重连、tool calling、多轮会话、用量统计。
 
 ## 怎么验证
 

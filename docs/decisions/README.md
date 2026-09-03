@@ -14,3 +14,4 @@
 | 编号 | 决策 | 日期 | 状态 |
 | --- | --- | --- | --- |
 | [001](001-ios-foundation-and-model-abstraction.md) | iOS 底座形态与模型能力抽象：SPM + xcodegen；云端为主线，端侧做增强 | 2026-09-02 | 已采纳 |
+| [002](002-cloud-provider-wire-format-and-testing.md) | 云端提供方：OpenAI 兼容线格式；流式统一为累积快照；集成测试打本地真服务器 | 2026-09-03 | 已采纳 |

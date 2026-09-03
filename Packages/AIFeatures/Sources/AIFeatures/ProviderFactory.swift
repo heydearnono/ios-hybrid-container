@@ -47,4 +47,37 @@ public enum ProviderFactory {
             behavior: MockBehavior(availability: .unavailable(.modelNotReady))
         )
     }
+
+    // MARK: - 真实云端
+
+    /// 装配真实云端提供方。
+    ///
+    /// 传输层已经完整实现并测试过（真实 `URLSession` + 真实 SSE，打本地 stub 服务器验证），
+    /// 但**默认装配仍然用替身** —— 因为还没有后端代理，`baseURL` 无处可指。
+    /// 后端就位后把这个方法接进 `makeDefaultRouter` 即可，不必改 UI。
+    ///
+    /// `credential` 是闭包而不是字符串：API Key 硬编码进 App 二进制等于公开发布。
+    /// 正确形态是后端代理持有厂商 Key，设备侧只拿用户态、可撤销、有有效期的凭证。
+    public static func makeCloud(
+        baseURL: URL,
+        model: String,
+        credential: @escaping CloudCredentialProvider
+    ) -> any LanguageModelProvider {
+        CloudLanguageModelProvider(
+            configuration: CloudProviderConfiguration(baseURL: baseURL, model: model),
+            credential: credential
+        )
+    }
+
+    /// 真实云端为主线、端侧做增强的装配。后端就位后这就是生产装配。
+    public static func makeRouter(
+        cloudBaseURL: URL,
+        model: String,
+        credential: @escaping CloudCredentialProvider
+    ) -> ModelRouter {
+        ModelRouter(
+            primary: makeCloud(baseURL: cloudBaseURL, model: model, credential: credential),
+            onDevice: makeUnavailableOnDevice()
+        )
+    }
 }

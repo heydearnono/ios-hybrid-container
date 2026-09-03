@@ -29,6 +29,7 @@
 
 | 文件 | 内容 | 状态 |
 | --- | --- | --- |
+| 📌 [streaming-in-swift.md](03-cloud-llm/streaming-in-swift.md) | SSE 流式实现：字节级解析、delta→累积快照、错误映射表、用真服务器而非 `URLProtocol` 的测试策略 | 🟡 断线重连未做 |
 | [README](03-cloud-llm/README.md) | 主线范围与目标 | ✅ |
 
 ## 04 · 多模态与系统 AI 框架
@@ -49,6 +50,7 @@
 | --- | --- |
 | [backlog.md](backlog.md) | 调研待办与待答问题清单 |
 | [decisions/001-...](decisions/001-ios-foundation-and-model-abstraction.md) | **ADR 001**：iOS 底座形态与模型能力抽象（SPM + xcodegen；云端为主，端侧增强） |
+| [decisions/002-...](decisions/002-cloud-provider-wire-format-and-testing.md) | **ADR 002**：云端提供方线格式（OpenAI 兼容）、流式统一为累积快照、集成测试打本地真服务器 |
 | [decisions/](decisions/) | 技术选型决策记录（ADR）索引 |
 | [templates/调研笔记模板.md](templates/调研笔记模板.md) | 新建笔记用 |
 | [templates/技术选型对比模板.md](templates/技术选型对比模板.md) | 做方案对比用 |

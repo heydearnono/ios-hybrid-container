@@ -32,4 +32,4 @@ HTTPS 流量可以被抓包。任何「藏在代码里」「做了混淆」的�
 | 文件 | 主题 | 状态 |
 | --- | --- | --- |
 | `client-architecture.md` | 客户端架构与密钥方案 | 待建 |
-| `streaming-in-swift.md` | Swift 侧 SSE 流式处理 | 待建 |
+| [streaming-in-swift.md](streaming-in-swift.md) | Swift 侧 SSE 流式处理：解析器、错误映射、测试策略 | ✅ 实现已落地并测试；**断线重连未做** |

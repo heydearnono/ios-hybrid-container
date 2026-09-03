@@ -12,6 +12,7 @@ public struct ModelProviderID: Sendable, Hashable, ExpressibleByStringLiteral,
 
     public static let mock: ModelProviderID = "mock"
     public static let router: ModelProviderID = "router"
+    public static let cloud: ModelProviderID = "cloud"
 }
 
 /// 请求对数据去向的要求。
