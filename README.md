@@ -8,12 +8,28 @@ iOS 平台 AI 能力项目。**整个工程由 AI 开发** —— 因此每一�
 
 ## 跑起来
 
+⚠️ **仓库里没有 `.xcodeproj`** —— 它是 xcodegen 的生成物，不入库（改工程请改 `project.yml`）。
+所以 clone 之后**直接用 Xcode 打开这个文件夹会失败**，报
+`Failed to open a document for ...，but no underlying error was returned`
+（Xcode 找不到 `.xcodeproj` / `.xcworkspace` / 根级 `Package.swift` 时就是这个文案）。
+
+先生成工程：
+
 ```bash
-./scripts/verify.sh          # 全量：逻辑测试 + 生成工程 + 构建 + 模拟器实跑
+brew install xcodegen         # 没装过才要
+xcodegen generate            # 产出 AILab.xcodeproj
+open AILab.xcodeproj         # 之后 Cmd+R
+```
+
+只想跑测试、不开 Xcode：
+
+```bash
+./scripts/verify.sh          # 全量：逻辑测试 + 生成工程 + 构建 + 模拟器实跑（第一步就是 xcodegen generate）
 ./scripts/verify.sh logic    # 只跑逻辑测试（秒级）
 ```
 
-需要 Xcode 26.2 与 `brew install xcodegen`。`.xcodeproj` 是生成物，改工程请改 `project.yml`。
+环境要求：**Xcode 26.2 以上**（deployment target iOS 26.0、Swift 语言模式 6.0，更低版本构建不过）、
+xcodegen 2.46.0 以上。
 
 ## 代码结构
 
