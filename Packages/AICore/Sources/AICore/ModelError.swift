@@ -35,6 +35,18 @@ public enum ModelError: Error, Equatable, Sendable {
     /// 请求被主动取消。
     case cancelled
 
+    /// 工具调用循环超过了允许的轮数。
+    ///
+    /// 只有云端会出现：那边的循环在客户端手里，模型可能反复要求调工具而永不给出答案。
+    /// 端侧的循环在框架内部，我们没有插手的位置。
+    case toolLoopLimitExceeded(limit: Int)
+
+    /// 当前提供方不支持请求里要求的能力，且**没有等价的降级路径**。
+    ///
+    /// 存在这个 case 是为了兑现「不静默降级」：例如 iOS 26.2 端侧没有 `tool_choice` 的等价物，
+    /// `.required` 只能如实失败，绝不能悄悄当成 `.auto` 执行 —— 那会让调用方以为约束生效了。
+    case unsupportedCapability(detail: String)
+
     /// 未归类的底层错误。附上原始描述以便排查。
     case underlying(detail: String)
 }
@@ -60,6 +72,10 @@ extension ModelError: LocalizedError {
             return "请求超时（\(duration)）"
         case .cancelled:
             return "请求已取消"
+        case .toolLoopLimitExceeded(let limit):
+            return "工具调用循环超过 \(limit) 轮仍未给出答案"
+        case .unsupportedCapability(let detail):
+            return "当前提供方不支持：\(detail)"
         case .underlying(let detail):
             return detail
         }

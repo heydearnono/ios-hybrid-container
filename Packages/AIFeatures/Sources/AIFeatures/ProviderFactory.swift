@@ -58,14 +58,26 @@ public enum ProviderFactory {
     ///
     /// `credential` 是闭包而不是字符串：API Key 硬编码进 App 二进制等于公开发布。
     /// 正确形态是后端代理持有厂商 Key，设备侧只拿用户态、可撤销、有有效期的凭证。
+    ///
+    /// `reconnect` 默认开（重试 2 次）。要关掉传 `.disabled`；注意它的语义是
+    /// 「重发整个请求」，且只在还没吐出任何内容时生效，见 `ReconnectPolicy`。
+    ///
+    /// `tools` 挂在提供方而不是每次请求上：端侧 `LanguageModelSession(tools:)` 只在
+    /// 初始化时收工具，把工具集放进 `ModelRequest` 会让两条路径的形状对不上。
+    /// 每次请求可变的只有 `ModelRequest.toolChoice`。见 `docs/05-agent-arch/tool-calling.md`。
     public static func makeCloud(
         baseURL: URL,
         model: String,
-        credential: @escaping CloudCredentialProvider
+        credential: @escaping CloudCredentialProvider,
+        reconnect: ReconnectPolicy = .default,
+        tools: ToolRegistry = .empty
     ) -> any LanguageModelProvider {
         CloudLanguageModelProvider(
-            configuration: CloudProviderConfiguration(baseURL: baseURL, model: model),
-            credential: credential
+            configuration: CloudProviderConfiguration(
+                baseURL: baseURL, model: model, reconnect: reconnect
+            ),
+            credential: credential,
+            tools: tools
         )
     }
 
@@ -73,10 +85,15 @@ public enum ProviderFactory {
     public static func makeRouter(
         cloudBaseURL: URL,
         model: String,
-        credential: @escaping CloudCredentialProvider
+        credential: @escaping CloudCredentialProvider,
+        reconnect: ReconnectPolicy = .default,
+        tools: ToolRegistry = .empty
     ) -> ModelRouter {
         ModelRouter(
-            primary: makeCloud(baseURL: cloudBaseURL, model: model, credential: credential),
+            primary: makeCloud(
+                baseURL: cloudBaseURL, model: model,
+                credential: credential, reconnect: reconnect, tools: tools
+            ),
             onDevice: makeUnavailableOnDevice()
         )
     }

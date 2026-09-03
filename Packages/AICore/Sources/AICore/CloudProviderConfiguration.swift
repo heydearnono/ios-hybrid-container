@@ -22,19 +22,41 @@ public struct CloudProviderConfiguration: Sendable {
     public var authorizationScheme: String
     /// 额外请求头（厂商特有的版本号、租户标识等）。
     public var extraHeaders: [String: String]
+    /// 断线重连策略。语义与限制见 `ReconnectPolicy` ——
+    /// 关键一条：**只在还没吐出内容时才重连**。
+    public var reconnect: ReconnectPolicy
+    /// 工具调用循环的最大轮数。
+    ///
+    /// **云端的工具循环在客户端手里**（端侧在框架里），所以这个上限必须由我们自己设。
+    /// 模型完全可能反复要求调同一个工具而永不收敛，每一轮都是一次真实计费请求 ——
+    /// 没有上限就是一个能烧钱的死循环。超限如实抛 `.toolLoopLimitExceeded`，不静默截断。
+    public var maximumToolIterations: Int
+    /// 是否用 OpenAI 的 `strict` 模式下发工具 schema。
+    ///
+    /// 开启时参数会被服务端按 schema 强校验（每层 `additionalProperties: false`、
+    /// 所有字段进 `required`、可选字段用 `["string","null"]` 表达），模型吐出的参数因此可信得多。
+    /// ⚠️ 未验证：本项目没对任何真实厂商端点发过请求，部分自建网关可能不认 `strict` 字段 ——
+    /// 遇到 400 先把这个关掉。
+    public var usesStrictToolSchema: Bool
 
     public init(
         baseURL: URL,
         model: String,
         chatCompletionsPath: String = "/v1/chat/completions",
         authorizationScheme: String = "Bearer",
-        extraHeaders: [String: String] = [:]
+        extraHeaders: [String: String] = [:],
+        reconnect: ReconnectPolicy = .default,
+        maximumToolIterations: Int = 5,
+        usesStrictToolSchema: Bool = true
     ) {
         self.baseURL = baseURL
         self.model = model
         self.chatCompletionsPath = chatCompletionsPath
         self.authorizationScheme = authorizationScheme
         self.extraHeaders = extraHeaders
+        self.reconnect = reconnect
+        self.maximumToolIterations = max(0, maximumToolIterations)
+        self.usesStrictToolSchema = usesStrictToolSchema
     }
 
     var endpoint: URL {

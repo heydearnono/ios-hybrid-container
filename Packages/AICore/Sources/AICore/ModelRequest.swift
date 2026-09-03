@@ -40,13 +40,23 @@ public struct ModelRequest: Sendable, Equatable {
     /// 因此超时保护必须由抽象层强制施加，不能指望提供方自己守规矩。
     public var timeout: Duration
 
+    /// 本次请求是否/如何强制调用工具。
+    ///
+    /// **工具集本身不在这里**，而是在提供方构造时给定 —— 端侧 `LanguageModelSession(tools:)`
+    /// 只接受初始化时传入的工具，中途换工具集必须重建 session。把工具挂在请求上会做出一个
+    /// 端侧兑现不了的承诺。这里只放「本轮怎么用」这种每次可变的部分。
+    ///
+    /// 另外 `AgentTool` 带闭包，放进来会让 `ModelRequest` 失去 `Equatable`。
+    public var toolChoice: ToolChoice
+
     public init(
         prompt: String,
         systemInstructions: String? = nil,
         temperature: Double? = nil,
         maximumResponseTokens: Int? = nil,
         privacy: PrivacyRequirement = .any,
-        timeout: Duration = .seconds(30)
+        timeout: Duration = .seconds(30),
+        toolChoice: ToolChoice = .auto
     ) {
         self.prompt = prompt
         self.systemInstructions = systemInstructions
@@ -54,5 +64,6 @@ public struct ModelRequest: Sendable, Equatable {
         self.maximumResponseTokens = maximumResponseTokens
         self.privacy = privacy
         self.timeout = timeout
+        self.toolChoice = toolChoice
     }
 }

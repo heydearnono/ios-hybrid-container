@@ -4,10 +4,20 @@ public struct ModelResponse: Sendable, Equatable {
     public let text: String
     /// 实际产出这个回答的提供方。经过路由后，调用方需要知道到底是谁答的。
     public let providerID: ModelProviderID
+    /// 产出这个回答的过程中实际执行过的工具，按发生顺序。
+    ///
+    /// 存在的理由是可观测性：工具调用是**副作用**，调用方需要知道「模型替我做了什么」，
+    /// 而不只是拿到最后那段文字。为空表示这次没调工具。
+    public let toolInvocations: [ToolCallResult]
 
-    public init(text: String, providerID: ModelProviderID) {
+    public init(
+        text: String,
+        providerID: ModelProviderID,
+        toolInvocations: [ToolCallResult] = []
+    ) {
         self.text = text
         self.providerID = providerID
+        self.toolInvocations = toolInvocations
     }
 }
 
@@ -16,11 +26,14 @@ public struct ModelResponse: Sendable, Equatable {
 /// **携带的是累积快照，不是增量。** UI 应当直接赋值（`text = chunk.cumulativeText`），
 /// 不要 append。
 ///
-/// 这个取舍来自实测：Apple Foundation Models 的 `streamResponse` 吐的是累积快照，
-/// 且在生成结构化内容时**会修订先前已吐出的部分**；而云端 SSE 吐的是增量 delta。
+/// 这个取舍来自两侧语义的差异：Apple Foundation Models 的 `streamResponse` 吐的是
+/// **累积快照**而不是 delta（WWDC25 session 286 明确这么说），而云端 SSE 吐的是增量 delta。
 /// 两种语义必须统一，否则每个调用点都要分别处理。
-/// 统一到快照是无损的（增量累加即得快照），统一到增量则需要对快照做 diff —— 一旦模型
-/// 修订前文，diff 就会产出错误结果。所以这里选快照。
+///
+/// 统一到快照是无损的（增量累加即得快照）；统一到增量则需要对快照做 diff，而 diff 只有在
+/// 「后一片一定以前一片为前缀」时才正确。⚠️ 未验证：Apple 并没有承诺快照只会追加、不会修订，
+/// 而结构化输出的 partially-generated 类型天然会让先前字段被填补或改写 —— 本机没有
+/// Apple Intelligence，这一点**无法实测**，只能按不可逆的方向选。所以这里选快照。
 /// 依据见 `docs/01-on-device-llm/foundation-models-overview.md`。
 public struct ModelResponseChunk: Sendable, Equatable {
     public let cumulativeText: String

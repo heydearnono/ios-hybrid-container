@@ -19,7 +19,11 @@
 
 Phase 3 当前进度：云端**传输层已实现并测试**（真 `URLSession` + 真 SSE，打本地 stub 服务器验证，
 见 [`docs/03-cloud-llm/streaming-in-swift.md`](docs/03-cloud-llm/streaming-in-swift.md) 与 ADR 002）。
-但**默认装配仍是 mock** —— 后端代理不存在，`baseURL` 无处可指。未做：断线重连、tool calling、多轮会话、用量统计。
+但**默认装配仍是 mock** —— 后端代理不存在，`baseURL` 无处可指。
+断线重连已实现（语义是「失败即重发整个请求」，吐过内容后禁止重连）。
+云端 tool calling 已实现（中立 `AgentTool` 抽象 + 下发/解析/回传/循环上限，流式按 `index` 拼接，
+见 [`docs/05-agent-arch/tool-calling.md`](docs/05-agent-arch/tool-calling.md)）；
+端侧工具适配器、流式里的工具事件、多轮会话、用量统计仍未做。
 
 ## 怎么验证
 

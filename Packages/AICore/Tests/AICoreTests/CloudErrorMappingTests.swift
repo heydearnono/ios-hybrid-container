@@ -5,13 +5,15 @@ import Testing
 
 @Suite("云端错误映射与超时")
 struct CloudErrorMappingTests {
+    /// 默认关掉重连：这里测的是**错误语义**，5xx 之类可重试的失败若真去重试，
+    /// 断言不会变但测试会白等几秒。重连行为由 `CloudReconnectTests` 覆盖。
     private func makeProvider(
         _ server: StubHTTPServer,
         token: String? = "test-token"
     ) -> CloudLanguageModelProvider {
         CloudLanguageModelProvider(
             configuration: CloudProviderConfiguration(
-                baseURL: server.baseURL, model: "test-model"
+                baseURL: server.baseURL, model: "test-model", reconnect: .disabled
             ),
             credential: { token },
             session: URLSession(configuration: .ephemeral)

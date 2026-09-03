@@ -16,17 +16,24 @@ public actor CloudLanguageModelProvider: LanguageModelProvider {
     private let credential: CloudCredentialProvider
     /// 非 private：流式实现在 `CloudLanguageModelProvider+Streaming.swift` 里要用。
     let session: URLSession
+    let tools: ToolRegistry
+
+    /// 非 private：同上。
+    var reconnect: ReconnectPolicy { configuration.reconnect }
+    var maximumToolIterations: Int { configuration.maximumToolIterations }
 
     public init(
         id: ModelProviderID = .cloud,
         configuration: CloudProviderConfiguration,
         credential: @escaping CloudCredentialProvider,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        tools: ToolRegistry = .empty
     ) {
         self.id = id
         self.configuration = configuration
         self.credential = credential
         self.session = session
+        self.tools = tools
     }
 
     /// **不发探测请求。** 只看有没有凭证。
@@ -47,8 +54,55 @@ public actor CloudLanguageModelProvider: LanguageModelProvider {
 
     // MARK: - 非流式
 
+    /// 非流式请求。可重试的失败按 `ReconnectPolicy` 退避重发；模型要求调工具时**自己跑循环**。
+    ///
+    /// 非流式这条路径没有「已经吐过内容」的顾虑 —— 要么整个回答拿到，要么什么都没拿到，
+    /// 所以重发是干净的。流式那条路径的额外约束见 `ReconnectPolicy`。
     public func respond(to request: ModelRequest) async throws -> ModelResponse {
-        let urlRequest = try await makeURLRequest(for: request, stream: false)
+        var messages = Self.initialMessages(for: request)
+        var invocations: [ToolCallResult] = []
+        var roundsUsed = 0
+
+        while true {
+            let isFirstRound = roundsUsed == 0
+            let round = try await reconnect.retrying(timeout: request.timeout) {
+                try await self.respondOnce(
+                    request, messages: messages, isFirstRound: isFirstRound)
+            }
+
+            guard !round.toolCalls.isEmpty else {
+                guard let text = round.text else {
+                    throw ModelError.decodingFailure(
+                        detail: "响应里既没有 choices[0].message.content 也没有 tool_calls")
+                }
+                return ModelResponse(
+                    text: text, providerID: id, toolInvocations: invocations)
+            }
+            guard roundsUsed < maximumToolIterations else {
+                throw ModelError.toolLoopLimitExceeded(limit: maximumToolIterations)
+            }
+            roundsUsed += 1
+
+            messages.append(.assistant(content: round.text, toolCalls: round.toolCalls))
+            let results = await tools.execute(round.toolCalls)
+            invocations.append(contentsOf: results)
+            messages.append(contentsOf: results.map { CloudWire.Message.toolResult($0) })
+        }
+    }
+
+    /// 一轮的产出。`text` 与 `toolCalls` 可以同时非空 —— spec 不禁止边说边调。
+    struct RoundOutcome {
+        var text: String?
+        var toolCalls: [ToolCallRequest] = []
+    }
+
+    private func respondOnce(
+        _ request: ModelRequest,
+        messages: [CloudWire.Message],
+        isFirstRound: Bool
+    ) async throws -> RoundOutcome {
+        let urlRequest = try await makeURLRequest(
+            request, messages: messages, stream: false, isFirstRound: isFirstRound)
 
         let data: Data
         let response: URLResponse
@@ -77,18 +131,33 @@ public actor CloudLanguageModelProvider: LanguageModelProvider {
            CloudWire.contentFilterFinishReasons.contains(reason) {
             throw ModelError.guardrailViolation
         }
-        guard let text = choice?.message?.content else {
-            throw ModelError.decodingFailure(detail: "响应里没有 choices[0].message.content")
-        }
-        return ModelResponse(text: text, providerID: id)
+        return RoundOutcome(
+            text: choice?.message?.content,
+            toolCalls: (choice?.message?.tool_calls ?? []).map(ToolCallRequest.init))
     }
 
     // MARK: - 请求构造
 
     /// 非 private：流式实现在扩展文件里要复用。
+    static func initialMessages(for request: ModelRequest) -> [CloudWire.Message] {
+        var messages: [CloudWire.Message] = []
+        if let instructions = request.systemInstructions, !instructions.isEmpty {
+            messages.append(CloudWire.Message(role: "system", content: instructions))
+        }
+        messages.append(CloudWire.Message(role: "user", content: request.prompt))
+        return messages
+    }
+
+    /// 非 private：流式实现在扩展文件里要复用。
+    ///
+    /// `isFirstRound` 决定 `tool_choice` 要不要下发：**强制类的选择只在第一轮生效**。
+    /// 否则 `.required` 会让模型每一轮都必须再调一次工具，永远轮不到它给出答案 ——
+    /// 循环只会撞上 `maximumToolIterations`。
     func makeURLRequest(
-        for request: ModelRequest,
-        stream: Bool
+        _ request: ModelRequest,
+        messages: [CloudWire.Message],
+        stream: Bool,
+        isFirstRound: Bool
     ) async throws -> URLRequest {
         guard let token = try await credential(), !token.isEmpty else {
             throw ModelError.unavailable(.notConfigured)
@@ -110,18 +179,18 @@ public actor CloudLanguageModelProvider: LanguageModelProvider {
             urlRequest.setValue(value, forHTTPHeaderField: key)
         }
 
-        var messages: [CloudWire.Message] = []
-        if let instructions = request.systemInstructions, !instructions.isEmpty {
-            messages.append(CloudWire.Message(role: "system", content: instructions))
-        }
-        messages.append(CloudWire.Message(role: "user", content: request.prompt))
-
+        let strict = configuration.usesStrictToolSchema
         let body = CloudWire.ChatRequest(
             model: configuration.model,
             messages: messages,
             stream: stream,
             temperature: request.temperature,
-            max_tokens: request.maximumResponseTokens
+            max_tokens: request.maximumResponseTokens,
+            // 没有工具时整个字段省掉，`tool_choice` 也跟着省 —— 服务端在无 tools 时
+            // 本来就把它当 `none`，发过去只是噪音。
+            tools: tools.isEmpty ? nil : tools.all.map { .init($0, strict: strict) },
+            tool_choice: tools.isEmpty || !isFirstRound
+                ? nil : CloudWire.ToolChoiceWire(request.toolChoice)
         )
         urlRequest.httpBody = try JSONEncoder().encode(body)
         return urlRequest

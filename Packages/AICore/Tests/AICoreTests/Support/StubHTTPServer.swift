@@ -28,6 +28,11 @@ final class StubHTTPServer: @unchecked Sendable {
         case sse(frames: [String], perFrameDelay: Duration)
         /// 原始字节按给定切分推送。用来把 UTF-8 多字节序列切在分片边界上。
         case rawChunks(_ chunks: [[UInt8]], perChunkDelay: Duration)
+        /// 声明了 `Content-Length` 却只发一部分就关连接。
+        ///
+        /// 这是模拟「流中途断线」的可靠办法：不带 `Content-Length` 的响应靠关连接界定结束，
+        /// 提前关等于正常收尾，`URLSession` 不会报错；声明了长度却不给够，才是明确的截断。
+        case truncated(declaredLength: Int, pieces: [String], perPieceDelay: Duration)
         /// 接受连接后什么都不回，也不关。用来验证超时保护。
         case hang
 
@@ -42,7 +47,10 @@ final class StubHTTPServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "StubHTTPServer")
     private let lock = NSLock()
     private var _requests: [RecordedRequest] = []
-    private let reply: Reply
+    /// 第 N 个连接用 `replies[N]`；用完最后一个之后就一直重复它。
+    /// 这样才能测「先失败几次、后成功」的重试路径。
+    private let replies: [Reply]
+    private var _connectionCount = 0
 
     /// 系统分配的端口。给了默认值，好让 `self` 在装回调之前就完成初始化 ——
     /// 回调必须在 `start()` **之前**装好（见 init 里的注释）。
@@ -55,8 +63,13 @@ final class StubHTTPServer: @unchecked Sendable {
         return _requests
     }
 
-    init(reply: Reply) throws {
-        self.reply = reply
+    convenience init(reply: Reply) throws {
+        try self.init(replies: [reply])
+    }
+
+    init(replies: [Reply]) throws {
+        precondition(!replies.isEmpty)
+        self.replies = replies
 
         let parameters = NWParameters.tcp
         parameters.allowLocalEndpointReuse = true
@@ -100,12 +113,17 @@ final class StubHTTPServer: @unchecked Sendable {
 
 extension StubHTTPServer {
     private func accept(_ connection: NWConnection) {
+        lock.lock()
+        let index = _connectionCount
+        _connectionCount += 1
+        lock.unlock()
+
         connection.start(queue: queue)
-        readRequest(on: connection, buffer: Data())
+        readRequest(on: connection, buffer: Data(), replyIndex: index)
     }
 
     /// 递归读取，直到攒够 header 加 `Content-Length` 指定的 body。
-    private func readRequest(on connection: NWConnection, buffer: Data) {
+    private func readRequest(on connection: NWConnection, buffer: Data, replyIndex: Int) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) {
             [weak self] data, _, isComplete, error in
             guard let self else { return }
@@ -116,14 +134,14 @@ extension StubHTTPServer {
                 self.lock.lock()
                 self._requests.append(parsed)
                 self.lock.unlock()
-                self.respond(on: connection)
+                self.respond(on: connection, replyIndex: replyIndex)
                 return
             }
             if error != nil || isComplete {
                 connection.cancel()
                 return
             }
-            self.readRequest(on: connection, buffer: buffer)
+            self.readRequest(on: connection, buffer: buffer, replyIndex: replyIndex)
         }
     }
 
@@ -162,8 +180,8 @@ extension StubHTTPServer {
 // MARK: - 应答
 
 extension StubHTTPServer {
-    private func respond(on connection: NWConnection) {
-        switch reply {
+    private func respond(on connection: NWConnection, replyIndex: Int) {
+        switch replies[min(replyIndex, replies.count - 1)] {
         case .hang:
             break // 故意不回、不关：让客户端自己超时
 
@@ -188,6 +206,18 @@ extension StubHTTPServer {
                 headers: ["Content-Type": "text/event-stream", "Cache-Control": "no-cache"]
             )
             send([head] + chunks.map { Data($0) }, on: connection, delay: delay)
+
+        case .truncated(let declaredLength, let pieces, let delay):
+            // 声明的长度故意大于实际发送量，发完就关 —— 客户端会看到一个明确的截断错误。
+            let head = Self.responseHead(
+                status: 200,
+                headers: [
+                    "Content-Type": "text/event-stream",
+                    "Cache-Control": "no-cache",
+                    "Content-Length": String(declaredLength),
+                ]
+            )
+            send([head] + pieces.map { Data($0.utf8) }, on: connection, delay: delay)
         }
     }
 
@@ -291,5 +321,69 @@ extension StubHTTPServer {
         {"choices":[{"message":{"role":"assistant","content":\(jsonString(content))},\
         "finish_reason":"\(finishReason)"}]}
         """
+    }
+
+    /// 一次工具调用的描述。`argumentPieces` 分片是为了模拟流式逐帧追加。
+    struct StubToolCall: Sendable {
+        var index: Int
+        var id: String
+        var name: String
+        var argumentPieces: [String]
+
+        init(index: Int = 0, id: String, name: String, argumentPieces: [String]) {
+            self.index = index
+            self.id = id
+            self.name = name
+            self.argumentPieces = argumentPieces
+        }
+
+        var arguments: String { argumentPieces.joined() }
+    }
+
+    /// 非流式的 `tool_calls` 响应。`content` 为 `null`，`finish_reason` 为 `tool_calls`。
+    static func openAIToolCallResponse(_ calls: [StubToolCall]) -> String {
+        let encoded = calls.map { call in
+            """
+            {"id":"\(call.id)","type":"function","function":\
+            {"name":"\(call.name)","arguments":\(jsonString(call.arguments))}}
+            """
+        }
+        return """
+            {"choices":[{"message":{"role":"assistant","content":null,\
+            "tool_calls":[\(encoded.joined(separator: ","))]},"finish_reason":"tool_calls"}]}
+            """
+    }
+
+    /// 流式的工具调用帧序列。
+    ///
+    /// 刻意按真实形状构造：**首帧只带 `id` / `type` / `function.name`**，参数分片随后逐帧追加，
+    /// 且多个调用的参数帧**按 `index` 交错**到达 —— 只认「当前工具调用」的实现会在这里翻车。
+    static func openAIToolCallStreamFrames(
+        _ calls: [StubToolCall], finishReason: String? = "tool_calls"
+    ) -> [String] {
+        var frames: [String] = []
+        for call in calls {
+            frames.append("""
+                data: {"choices":[{"delta":{"tool_calls":[{"index":\(call.index),\
+                "id":"\(call.id)","type":"function","function":\
+                {"name":"\(call.name)","arguments":""}}]}}]}\n\n
+                """)
+        }
+        let deepest = calls.map(\.argumentPieces.count).max() ?? 0
+        for step in 0..<deepest {
+            for call in calls where step < call.argumentPieces.count {
+                frames.append("""
+                    data: {"choices":[{"delta":{"tool_calls":[{"index":\(call.index),\
+                    "function":{"arguments":\(jsonString(call.argumentPieces[step]))}}]}}]}\n\n
+                    """)
+            }
+        }
+        if let finishReason {
+            frames.append(
+                "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"\(finishReason)\"}]}\n\n"
+            )
+        }
+        frames.append("data: [DONE]\n\n")
+        return frames
     }
 }

@@ -7,13 +7,17 @@ import Testing
 struct CloudProviderTests {
     // MARK: - 脚手架
 
+    /// 默认关掉重连：这个套件测的是单次往返的行为，
+    /// 让失败用例悄悄重试三遍只会把测试拖慢、把断言意图搅浑。
+    /// 重连本身由 `CloudReconnectTests` 专门覆盖。
     private func makeProvider(
         _ server: StubHTTPServer,
-        token: String? = "test-token"
+        token: String? = "test-token",
+        reconnect: ReconnectPolicy = .disabled
     ) -> CloudLanguageModelProvider {
         CloudLanguageModelProvider(
             configuration: CloudProviderConfiguration(
-                baseURL: server.baseURL, model: "test-model"
+                baseURL: server.baseURL, model: "test-model", reconnect: reconnect
             ),
             credential: { token },
             session: URLSession(configuration: .ephemeral)
