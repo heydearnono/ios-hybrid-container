@@ -24,6 +24,7 @@
 | 文件 | 主题 | 状态 |
 | --- | --- | --- |
 | [`../00-overview/ios-ai-landscape.md`](../00-overview/ios-ai-landscape.md) | 系统 AI 框架清单与选择指南（已核对本机 SDK 存在性） | ✅ 写在全景地图里 |
+| [`text-embedding.md`](text-embedding.md) | 文本嵌入与语义检索：`NLEmbedding` / `NLContextualEmbedding` 实测，中文判别力不足 | ✅ 2026-09-03 |
 | `speech-transcription.md` | `SpeechAnalyzer` 转写栈实测（可在模拟器推进） | 待建 |
 | `vision-ocr.md` | Vision 文字与文档识别 | 待建 |
 

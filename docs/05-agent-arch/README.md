@@ -24,5 +24,5 @@ iOS 上 Agent 的差异化不在模型，而在**能接触到什么**：App Inte
 
 | 文件 | 主题 | 状态 |
 | --- | --- | --- |
-| `tool-calling.md` | Tool Calling 机制对比 | 待建 |
-| `app-intents-as-tools.md` | App Intents 作为工具层 | 待建 |
+| [`tool-calling.md`](tool-calling.md) | Tool Calling：端侧 vs 云端协议差异与统一抽象（含云端侧已落地的实现） | ✅ 2026-09-03 |
+| [`app-intents-as-tools.md`](app-intents-as-tools.md) | App Intents 作为工具层：无官方桥接，只能复用业务逻辑 | ✅ 2026-09-03 |

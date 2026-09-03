@@ -1,0 +1,53 @@
+# spike: app-intents-01 / AppBuild
+#
+# 要回答的问题：AppIntent 定义在**本地 SPM 包**里时，Xcode 的
+# App Intents 构建期元数据抽取（appintentsmetadataprocessor）还会不会跑？
+# 产物 .app 里到底有没有 Metadata.appintents？
+#
+# 生成 + 构建：
+#   xcodegen generate
+#   xcodebuild build -scheme IntentSpike \
+#     -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+#     -derivedDataPath .build/xcode
+name: IntentSpike
+
+options:
+  bundleIdPrefix: dev.ailab.spike
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "26.0"
+  minimumXcodeGenVersion: "2.46.0"
+
+packages:
+  IntentKit:
+    path: ../HostTest
+
+targets:
+  IntentSpike:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: IntentKit
+        product: IntentKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.ailab.spike.IntentSpike
+        PRODUCT_NAME: IntentSpike
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+
+schemes:
+  IntentSpike:
+    build:
+      targets:
+        IntentSpike: all
+    run:
+      config: Debug

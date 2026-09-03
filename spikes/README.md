@@ -1,9 +1,18 @@
 # spikes
 
-一次性验证代码。**Phase 1 起启用，当前为空。**
+一次性验证代码。
 
 spike 的唯一目的是回答一个具体问题（「这个 API 到底能不能这么用」「这个模型在 iPhone 上多快」），
 回答完就完成使命。不追求代码质量，追求最快拿到结论。
+
+## 现有 spike
+
+| 目录 | 回答的问题 | 对应笔记 |
+| --- | --- | --- |
+| [`foundation-models-01/`](foundation-models-01/) | Foundation Models 的 API 形状与硬限制；本机能不能跑 | [`01-on-device-llm/foundation-models-overview.md`](../docs/01-on-device-llm/foundation-models-overview.md) |
+| [`text-embedding-01/`](text-embedding-01/) | iOS 有没有能用的中文句向量 API | [`04-multimodal/text-embedding.md`](../docs/04-multimodal/text-embedding.md) |
+| [`app-intents-01/`](app-intents-01/) | App Intents 能否直接当 Agent 工具层 | [`05-agent-arch/app-intents-as-tools.md`](../docs/05-agent-arch/app-intents-as-tools.md) |
+| [`coreml-mlx-01/`](coreml-mlx-01/) | Core ML API 形状、模拟器能验证什么、转换链路的坑、压缩体积、MLX 能不能用 | [`02-coreml-mlx/coreml-vs-mlx.md`](../docs/02-coreml-mlx/coreml-vs-mlx.md) |
 
 ## 约定
 

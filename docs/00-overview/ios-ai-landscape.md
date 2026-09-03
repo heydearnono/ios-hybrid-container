@@ -98,7 +98,7 @@ Apple 在 Technology Overviews 里给的原则是明确的一句话：
 | --- | --- | --- |
 | 1 系统框架 | ✅ 完全可推进 | 无阻塞，模拟器足够验证大部分能力 |
 | 2 端侧 LLM | 🚧 只能读文档 + 编译期验证 | 宿主 macOS 15.7.3 无 Apple Intelligence，且无真机 |
-| 3 Core ML / MLX | 🟡 大部分可推进 | 性能/内存结论必须真机，模拟器数据没有参考价值 |
+| 3 Core ML / MLX | 🟡 转换链路可推进，性能不可 | 转换与压缩已在宿主跑通；但模拟器**无 ANE**、测不出内存、**MLX 根本跑不起来**，见 [`coreml-vs-mlx.md`](../02-coreml-mlx/coreml-vs-mlx.md) |
 | 4 云端 LLM | ✅ 完全可推进 | 纯架构设计，不依赖设备 |
 | 5 Agent 架构 | 🟡 部分可推进 | 协议设计可做；端侧 Tool Calling 实测受路径 2 阻塞 |
 
