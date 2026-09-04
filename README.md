@@ -29,7 +29,12 @@ open AILab.xcodeproj         # 之后 Cmd+R
 ```
 
 环境要求：**Xcode 26.2 以上**（deployment target iOS 26.0、Swift 语言模式 6.0，更低版本构建不过）、
-xcodegen 2.46.0 以上。
+xcodegen 2.46.0 以上。装完 Xcode 还要单独下载 **iOS 26.2 模拟器运行时**（Settings → Components），
+它不随 Xcode 打包。
+
+卡住了先看 [`docs/00-overview/troubleshooting.md`](docs/00-overview/troubleshooting.md) ——
+按报错原文查成因和修法，包含一段五行的环境自检。**不需要升到 macOS 26**（Xcode 26.2 只要求
+macOS 15.6+），除非要实测端侧 LLM。
 
 ## 代码结构
 
@@ -47,6 +52,7 @@ xcodegen 2.46.0 以上。
 
 | 想做什么 | 去哪里 |
 | --- | --- |
+| 跑不起来、报错看不懂 | [`docs/00-overview/troubleshooting.md`](docs/00-overview/troubleshooting.md) |
 | 了解 iOS 上 AI 能力的全貌 | [`docs/00-overview/ios-ai-landscape.md`](docs/00-overview/ios-ai-landscape.md) |
 | 了解底座为什么长这样 | [`docs/decisions/001-...`](docs/decisions/001-ios-foundation-and-model-abstraction.md) |
 | 查某个主题已有的调研结论 | [`docs/README.md`](docs/README.md) 索引 |

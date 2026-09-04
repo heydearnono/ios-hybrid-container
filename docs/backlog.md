@@ -15,6 +15,7 @@
 | ⬜ | **P0** | 有没有可用的测试真机？机型和 iOS 版本是什么？—— 没有真机，**端侧两条路线都停在读文档**：Foundation Models 连模拟器都跑不通；Core ML / MLX 的性能与内存结论全部测不出（模拟器无 ANE、`os_proc_available_memory()` 返回 0、`thermalState` 恒为 `.nominal`） |
 | ⬜ | **P0** | **宿主 macOS 要不要升到 26（Tahoe）？** 已实测：不升级则连模拟器都跑不了 Foundation Models（见 `01-on-device-llm/foundation-models-overview.md`）。升级 or 真机，二选一必须解决 |
 | ⬜ | P1 | 目标产品的最低支持机型定在哪？这决定了端侧路径是否可用 |
+| ⬜ | P1 | **deployment target 要不要从 iOS 26.0 降下来？** 当前构建产物里没用到任何 iOS 26 独有 API，真正的技术地板是 `@Observable`（iOS 17.0）；26.0 是声明性下限，且与「云端为主线、端侧做增强」有张力。降下来要动三处版本声明，代价是端侧代码需 `@available` + `#if canImport` 双重门控，并且**本机只有 iOS 26.2 一个运行时，不下载低版本运行时就无法机器验证向下兼容**。分析见 [`00-overview/troubleshooting.md`](00-overview/troubleshooting.md#一个待决问题ios-260-这个下限有必要吗) |
 | ⬜ | P1 | 目标市场是否包含中国大陆？—— 若包含，Apple Intelligence 不可用，端侧 LLM 只能当增强 |
 
 ## 01 · 端侧 LLM

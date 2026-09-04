@@ -10,6 +10,7 @@
 | 文件 | 内容 | 状态 |
 | --- | --- | --- |
 | 📌 [ios-ai-landscape.md](00-overview/ios-ai-landscape.md) | iOS AI 能力全景地图：五条路径取舍 + 系统框架清单 + 选路顺序 | ✅ |
+| 📌 [troubleshooting.md](00-overview/troubleshooting.md) | 上手踩坑清单：报错原文 → 成因 → 修法 → 自证命令；Xcode/运行时/签名/mock 的门槛与「设计使然、不要修」的清单 | ✅ |
 | [environment.md](00-overview/environment.md) | 本机工具链版本与环境约束 | ✅ |
 
 ## 01 · 端侧 LLM（Foundation Models）
