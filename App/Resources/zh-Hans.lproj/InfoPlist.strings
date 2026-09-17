@@ -1,0 +1,4 @@
+/* 中文显示名。桌面图标下要显示「螃蟹」，靠的就是这一份本地化资源 ——
+   只在 Info.plist 里写 CFBundleDisplayName 落不到中文名。 */
+"CFBundleDisplayName" = "螃蟹";
+"CFBundleName" = "螃蟹";

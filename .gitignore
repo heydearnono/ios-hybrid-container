@@ -1,48 +1,32 @@
 # macOS
 .DS_Store
 ._*
-.Spotlight-V100
-.Trashes
+
+# xcodegen 生成物：工程文件是产物不是源码，改 project.yml 而不是改 pbxproj
+Crab.xcodeproj/
 
 # Xcode
 build/
 DerivedData/
 *.xcuserstate
-*.xcscmblueprint
 *.moved-aside
 xcuserdata/
-*.xccheckout
 *.hmap
 *.ipa
-*.dSYM.zip
 *.dSYM
+*.dSYM.zip
 
-# Xcode: 保留共享 scheme，忽略个人配置
+# Xcode：保留共享 scheme，忽略个人配置
 !*.xcodeproj/xcshareddata/
 !*.xcworkspace/xcshareddata/
-
-# xcodegen 生成物：工程文件是产物不是源码，改 project.yml 而不是改 pbxproj
-AILab.xcodeproj/
 
 # Swift Package Manager
 .build/
 .swiftpm/
 Package.resolved
 
-# CocoaPods / Carthage（如后续引入）
-Pods/
-Carthage/Build/
-
-# 机器学习产物：模型权重不进 git
-*.mlmodel
-*.mlpackage/
-*.mlmodelc/
-*.safetensors
-*.gguf
-*.ckpt
-*.pt
-*.pth
-models/
+# 验收脚本的中间产物
+.probe/
 
 # 密钥与本地配置
 .env
@@ -52,12 +36,6 @@ models/
 *.mobileprovision
 Secrets.swift
 Secrets.xcconfig
-
-# Python（coremltools / 模型转换脚本用）
-__pycache__/
-.venv/
-venv/
-*.pyc
 
 # 编辑器与工具
 .idea/

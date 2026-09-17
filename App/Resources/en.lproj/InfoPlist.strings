@@ -1,0 +1,4 @@
+/* 英文显示名。与 Info.plist 里的 CFBundleDisplayName 一致，
+   写出来是为了让 zh-Hans 不是唯一一份本地化资源。 */
+"CFBundleDisplayName" = "Crab";
+"CFBundleName" = "Crab";

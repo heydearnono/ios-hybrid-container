@@ -1,73 +1,41 @@
-# iOS AI Lab
+# Crab · iOS 容器
 
-iOS 平台 AI 能力项目。**整个工程由 AI 开发** —— 因此每一步都必须能被机器无人工干预地验证：
-不点 Xcode、不弹签名对话框、不依赖真机。
+三端 WebView 容器（Android / iOS / HarmonyOS NEXT）的 iOS 那一份。应用名 `Crab`，中文「螃蟹」，
+标识 `net.xiaoluzhu.crab`，三端同一个字符串。
 
-当前阶段：**Phase 2 — iOS 底座**。已有可跑可测的 App 骨架、模型能力抽象层与 mock；
-尚未接入任何真实模型。
+**规划不在这里。** 要做什么、怎么算过、取值取什么，都在 `pro`
+（`~/Desktop/github/Prospect`）的 README 与 `plan/` 五份里程碑文件。本仓只出实现、验收脚本与运行记录。
 
 ## 跑起来
 
-⚠️ **仓库里没有 `.xcodeproj`** —— 它是 xcodegen 的生成物，不入库（改工程请改 `project.yml`）。
-所以 clone 之后**直接用 Xcode 打开这个文件夹会失败**，报
-`Failed to open a document for ...，but no underlying error was returned`
-（Xcode 找不到 `.xcodeproj` / `.xcworkspace` / 根级 `Package.swift` 时就是这个文案）。
-
-先生成工程：
-
 ```bash
 brew install xcodegen         # 没装过才要
-xcodegen generate            # 产出 AILab.xcodeproj
-open AILab.xcodeproj         # 之后 Cmd+R
+./scripts/verify.sh           # 生成工程 + 构建 + 装进模拟器 + 起一次 + 对齐取值
 ```
 
-只想跑测试、不开 Xcode：
+**clone 之后先 `xcodegen generate`。** 仓库里没有 `.xcodeproj`，它是生成物、不入库；
+直接用 Xcode 打开这个目录会报「Failed to open a document」，那不是仓库坏了。
+`verify.sh` 自己会先生成，所以从任何子目录调用都行。
 
-```bash
-./scripts/verify.sh          # 全量：逻辑测试 + 生成工程 + 构建 + 模拟器实跑（第一步就是 xcodegen generate）
-./scripts/verify.sh logic    # 只跑逻辑测试（秒级）
-```
+卡住了看 [`docs/工程事实.md`](docs/工程事实.md)：工具链门槛、五条自检命令、报错速查表都在那里。
 
-环境要求：**Xcode 26.2 以上**（deployment target iOS 26.0、Swift 语言模式 6.0，更低版本构建不过）、
-xcodegen 2.46.0 以上。装完 Xcode 还要单独下载 **iOS 26.2 模拟器运行时**（Settings → Components），
-它不随 Xcode 打包。
+## 现在做到哪
 
-卡住了先看 [`docs/00-overview/troubleshooting.md`](docs/00-overview/troubleshooting.md) ——
-按报错原文查成因和修法，包含一段五行的环境自检。**不需要升到 macOS 26**（Xcode 26.2 只要求
-macOS 15.6+），除非要实测端侧 LLM。
+M1「装到模拟器」已过：构建通过、装得上、屏幕上有一个原生页面，取值与 `pro` 的取值表逐项对齐。
+**这一步不碰 WebView** —— 承载、注入、导航、降级分别是 M2 到 M4 的事。
 
-## 代码结构
+- 本端任务与逐条结果：[`docs/M1-任务清单.md`](docs/M1-任务清单.md)
+- 运行记录：[`docs/运行记录/`](docs/运行记录/)
+- 探针页十六条断言的入口是 `scripts/probe.sh`，M2 起才有东西跑；现在跑它会明确告诉你一条也没实现
 
-| 位置 | 职责 |
+## 目录
+
+| 路径 | 是什么 |
 | --- | --- |
-| [`Packages/AICore`](Packages/AICore) | 模型能力抽象：`LanguageModelProvider` 协议、`ModelRouter` 路由、超时保护、mock |
-| [`Packages/AIFeatures`](Packages/AIFeatures) | 业务逻辑与视图状态（`ChatStore`、装配点），不含 SwiftUI 视图 |
-| [`App/`](App) | 薄 SwiftUI 外壳 |
-| [`scripts/verify.sh`](scripts/verify.sh) | 唯一验证入口 |
+| `project.yml` | xcodegen 工程定义。工程结构改这个，不改 `.xcodeproj` |
+| `App/` | 薄 SwiftUI 外壳。`App/Resources/zh-Hans.lproj` 是中文显示名 |
+| `scripts/verify.sh` | 验证入口，AI 与 CI 都只调这个 |
+| `scripts/probe.sh` | 探针页断言入口，三仓同名、输出形状三端一字不差 |
+| `docs/` | 工程事实、每个里程碑的任务清单、运行记录 |
 
-逻辑刻意不放在 App target 里：包内 `swift test` 在宿主 macOS 上秒级返回，
-而 iOS 模拟器构建是分钟级。这个差别决定了 AI 改-验循环的速度。
-
-## 从哪里开始
-
-| 想做什么 | 去哪里 |
-| --- | --- |
-| 跑不起来、报错看不懂 | [`docs/00-overview/troubleshooting.md`](docs/00-overview/troubleshooting.md) |
-| 了解 iOS 上 AI 能力的全貌 | [`docs/00-overview/ios-ai-landscape.md`](docs/00-overview/ios-ai-landscape.md) |
-| 了解底座为什么长这样 | [`docs/decisions/001-...`](docs/decisions/001-ios-foundation-and-model-abstraction.md) |
-| 查某个主题已有的调研结论 | [`docs/README.md`](docs/README.md) 索引 |
-| 看还有哪些问题没答 | [`docs/backlog.md`](docs/backlog.md) |
-| 写一篇新调研笔记 | 复制 [`docs/templates/调研笔记模板.md`](docs/templates/调研笔记模板.md) |
-| 了解本机工具链版本与阻塞 | [`docs/00-overview/environment.md`](docs/00-overview/environment.md) |
-
-## 五条能力主线
-
-1. **端侧 LLM** — Apple Foundation Models，零成本、离线、隐私。🚫 本机完全跑不通（见环境基线）
-2. **Core ML / MLX** — 自带模型上设备，模型转换、量化、性能基准
-3. **云端 LLM** — 当前的主线：唯一能被机器端到端验证的路径
-4. **多模态与系统能力** — Vision、Speech、Translation、Image Playground 等现成框架
-5. **Agent 架构** — Tool Calling、App Intents、端云协同的任务编排
-
-## 项目约定
-
-见 [`CLAUDE.md`](CLAUDE.md)：架构不变量、验证要求、文档必须带来源链接与适用版本。
+协作约定与三条纪律见 [`CLAUDE.md`](CLAUDE.md)。

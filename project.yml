@@ -1,58 +1,54 @@
 # xcodegen 工程定义。
 #
-# .xcodeproj 是生成物，不入库（见 .gitignore）。AI 修改工程结构改这个文件，
+# .xcodeproj 是生成物，不入库（见 .gitignore）。工程结构改这个文件，
 # 而不是去动几千行、满是 UUID 引用的 project.pbxproj。
 #
 # 重新生成：xcodegen generate
-name: AILab
+#
+# 取值一律来自 pro 的取值表，本文件不自定：
+#   标识 net.xiaoluzhu.crab、应用名 Crab（中文显示名「螃蟹」）、deployment target 26.0、
+#   版本 0.1.0（UA 拼成 Crab/0.1.0 是 M3 的事，取值处就是这里的 MARKETING_VERSION）
+name: Crab
 
 options:
-  bundleIdPrefix: dev.ailab
+  bundleIdPrefix: net.xiaoluzhu
   createIntermediateGroups: true
   deploymentTarget:
     iOS: "26.0"
   minimumXcodeGenVersion: "2.46.0"
 
-packages:
-  AICore:
-    path: Packages/AICore
-  AIFeatures:
-    path: Packages/AIFeatures
-
 targets:
-  AILab:
+  Crab:
     type: application
     platform: iOS
     sources:
       - path: App
-    dependencies:
-      - package: AICore
-        product: AICore
-      - package: AIFeatures
-        product: AIFeatures
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.ailab.AILab
-        PRODUCT_NAME: AILab
+        PRODUCT_BUNDLE_IDENTIFIER: net.xiaoluzhu.crab
+        PRODUCT_NAME: Crab
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Crab
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: >-
           UIInterfaceOrientationPortrait
           UIInterfaceOrientationLandscapeLeft
           UIInterfaceOrientationLandscapeRight
-        # 模拟器构建不需要签名。这样 CI 与 AI 都不会撞上需要人工处理的签名交互。
+        # 模拟器构建不需要签名。关掉之后验证链条上不会弹任何需要人工处理的对话框。
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
 
 schemes:
-  AILab:
+  Crab:
     build:
       targets:
-        AILab: all
+        Crab: all
     run:
       config: Debug
