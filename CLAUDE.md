@@ -50,9 +50,11 @@
 ├── project.yml          # xcodegen 工程定义（改这个，不改 .xcodeproj）
 ├── App/                 # 薄 SwiftUI 外壳
 │   └── Resources/       # 本地化资源：中文显示名「螃蟹」落在这里
+├── Spikes/              # 一次性验证代码，不是实现；正常路径进不来，靠启动参数分叉
 ├── scripts/
 │   ├── verify.sh        # 验证入口
-│   └── probe.sh         # 探针页断言入口，三仓同名
+│   ├── probe.sh         # 探针页断言入口，三仓同名
+│   └── spike-origin.sh  # 插队核实：承载 origin 形态与 data: iframe
 └── docs/
     ├── 工程事实.md       # 工具链门槛与踩坑，重建时从旧仓分流过来的那一份
     ├── M1-任务清单.md    # 每个里程碑一份：把「怎么算过」翻译成本端任务
@@ -75,7 +77,7 @@
 | 里程碑 | 状态 |
 | --- | --- |
 | M1 装到模拟器 | ✅ 过了，记录在 `docs/运行记录/` |
-| M1 后的插队核实 | 下一步：承载 scheme 的 `location.origin` 形态、`data:` iframe，答案回 `pro` 再走 M2 |
+| M1 后的插队核实 | ✅ 试完了，记录在 `docs/运行记录/插队核实-承载origin.md`；**答案还没回到 `pro`** |
 | M2 本地承载 | 未开工，等 `pro` 把插队答案写进 M2 |
 | M3 配置注入与 UA | 未开工 |
 | M4 导航与降级 | 未开工 |

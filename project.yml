@@ -23,6 +23,9 @@ targets:
     platform: iOS
     sources:
       - path: App
+      # 一次性验证代码。`pro` 的开工文档要求插队核实在自己那个壳子里跑，不另起临时工程；
+      # 放独立目录是为了让「App/ 下不碰 WebView」这条还看得出来。
+      - path: Spikes
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.xiaoluzhu.crab
