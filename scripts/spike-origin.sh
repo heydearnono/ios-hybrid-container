@@ -18,7 +18,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-DEVICE="${CRAB_SIM_DEVICE:-iPhone 17 Pro}"
+# 选设备这一段与 verify.sh / probe.sh 共用一份，见该文件开头的注释。
+# shellcheck source=lib/sim-device.sh
+source "$ROOT/scripts/lib/sim-device.sh"
+
+SIM_DEVICE_PREF="${CRAB_SIM_DEVICE:-}"
 BUNDLE_ID="net.xiaoluzhu.crab"
 DERIVED=".build/xcode"
 APP_PATH="${DERIVED}/Build/Products/Debug-iphonesimulator/Crab.app"
@@ -28,31 +32,34 @@ step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 
 mkdir -p "$OUT"
 
+step "挑一台模拟器"
+select_sim_device "$SIM_DEVICE_PREF"
+
 step "生成工程并构建"
 xcodegen generate >/dev/null
 xcodebuild build \
   -scheme Crab \
-  -destination "platform=iOS Simulator,name=${DEVICE}" \
+  -destination "id=${SIM_UDID}" \
   -derivedDataPath "$DERIVED" \
   -quiet
 
 step "装进模拟器"
-xcrun simctl boot "$DEVICE" 2>/dev/null || true
-xcrun simctl bootstatus "$DEVICE" >/dev/null
-xcrun simctl install "$DEVICE" "$APP_PATH"
+xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
+xcrun simctl bootstatus "$SIM_UDID" >/dev/null
+xcrun simctl install "$SIM_UDID" "$APP_PATH"
 
 step "起一次，stdout 收进 ${OUT}/spike-console.txt"
 # --console-pty 会一直跟着进程，所以后台跑、给足时间、再收摊。
 xcrun simctl launch --terminate-running-process --console-pty \
-  "$DEVICE" "$BUNDLE_ID" --spike-origin >"${OUT}/spike-console.txt" 2>&1 &
+  "$SIM_UDID" "$BUNDLE_ID" --spike-origin >"${OUT}/spike-console.txt" 2>&1 &
 launch_pid=$!
 sleep 12
-xcrun simctl io "$DEVICE" screenshot --type=png "${OUT}/spike-origin.png" 2>/dev/null || true
-xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" >/dev/null 2>&1 || true
+xcrun simctl io "$SIM_UDID" screenshot --type=png "${OUT}/spike-origin.png" 2>/dev/null || true
+xcrun simctl terminate "$SIM_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
 wait "$launch_pid" 2>/dev/null || true
 
 step "① 落盘文件（判据取这一条）"
-container="$(xcrun simctl get_app_container "$DEVICE" "$BUNDLE_ID" data)"
+container="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" data)"
 result="${container}/Documents/spike-origin.txt"
 if [[ -f "$result" ]]; then
   cp "$result" "${OUT}/spike-origin.txt"
@@ -65,11 +72,11 @@ step "② console 里的 CRAB-SPIKE 行"
 grep -a "CRAB-SPIKE" "${OUT}/spike-console.txt" || echo "（console 里一行也没有）"
 
 step "③ OSLog 回读（M4 关心的就是这条路通不通）"
-xcrun simctl spawn "$DEVICE" log show \
+xcrun simctl spawn "$SIM_UDID" log show \
   --last 3m --style compact \
   --predicate 'subsystem == "net.xiaoluzhu.crab"' 2>/dev/null \
   | grep -a "CRAB-SPIKE" || echo "（log show 里一行也没有 —— 这条路要另找，写进记录）"
 
-xcrun simctl shutdown "$DEVICE" >/dev/null 2>&1 || true
+xcrun simctl shutdown "$SIM_UDID" >/dev/null 2>&1 || true
 
 step "完事。原始输出都在 ${OUT}/（不入库），结论写进 docs/运行记录/"

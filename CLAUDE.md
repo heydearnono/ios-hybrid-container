@@ -54,7 +54,9 @@
 ├── scripts/
 │   ├── verify.sh        # 验证入口
 │   ├── probe.sh         # 探针页断言入口，三仓同名
-│   └── spike-origin.sh  # 插队核实：承载 origin 形态与 data: iframe
+│   ├── spike-origin.sh  # 插队核实：承载 origin 形态与 data: iframe
+│   └── lib/             # 被上面几个 source 的共用片段，不是入口
+│       └── sim-device.sh # 挑一台可用模拟器，解析出 UDID 再用
 └── docs/
     ├── 工程事实.md       # 工具链门槛与踩坑，重建时从旧仓分流过来的那一份
     ├── M1-任务清单.md    # 每个里程碑一份：把「怎么算过」翻译成本端任务

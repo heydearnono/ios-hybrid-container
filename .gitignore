@@ -3,7 +3,9 @@
 ._*
 
 # xcodegen 生成物：工程文件是产物不是源码，改 project.yml 而不是改 pbxproj
-Crab.xcodeproj/
+# 按通配写而不是写死 Crab.xcodeproj/：改工程名时旧名字的生成物会留在磁盘上成为孤儿，
+# git status 又看不见它（AILab.xcodeproj/ 就是这么露出来的，见 docs/工程事实.md 第 10 节）。
+*.xcodeproj/
 
 # Xcode
 build/
@@ -15,10 +17,6 @@ xcuserdata/
 *.ipa
 *.dSYM
 *.dSYM.zip
-
-# Xcode：保留共享 scheme，忽略个人配置
-!*.xcodeproj/xcshareddata/
-!*.xcworkspace/xcshareddata/
 
 # Swift Package Manager
 .build/

@@ -13,7 +13,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-DEVICE="${CRAB_SIM_DEVICE:-iPhone 17 Pro}"
+# 选设备这一段与 spike-origin.sh / probe.sh 共用一份，见该文件开头的注释。
+# shellcheck source=lib/sim-device.sh
+source "$ROOT/scripts/lib/sim-device.sh"
+
+# 机型名只是个偏好：不设就自动挑，设了也仍然按 UDID 用（见 select_sim_device）。
+SIM_DEVICE_PREF="${CRAB_SIM_DEVICE:-}"
 SCHEME="Crab"
 # 取值来自 pro 的取值表。这里写死是为了让「产物里的取值漂了」当场报错。
 BUNDLE_ID="net.xiaoluzhu.crab"
@@ -26,8 +31,17 @@ step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 fail() { printf '❌ %s\n' "$1" >&2; exit 1; }
 
 run_logic() {
-  local packages=(Packages/*/)
-  if [[ ! -d "${packages[0]:-}" ]]; then
+  # 判据是 Package.swift 在不在，不是目录在不在。重建那一笔把源码删了之后，Packages/ 下可能
+  # 剩下只含 .swiftpm/ 的空壳目录（全被 .gitignore 忽略，git status 看不见），按目录存在去判
+  # 就会走进 swift test 并报 "Could not find Package.swift in this directory or any of its
+  # parent directories." —— 看起来像 SwiftPM 坏了，其实是那个目录里没有包。
+  local packages=() candidate
+  for candidate in Packages/*/; do
+    if [[ -f "${candidate}Package.swift" ]]; then
+      packages+=("$candidate")
+    fi
+  done
+  if (( ${#packages[@]} == 0 )); then
     step "swift test — 暂无逻辑包"
     echo "本仓还没有 Packages/：M1 只有一个原生壳子，没有可在宿主 macOS 上跑的逻辑。"
     echo "M2 起承载常量、路径归一化与配置取值都落在包里，那时这一档才有东西跑。"
@@ -40,13 +54,16 @@ run_logic() {
 }
 
 run_app() {
+  step "挑一台模拟器"
+  select_sim_device "$SIM_DEVICE_PREF"
+
   step "xcodegen generate"
   xcodegen generate
 
   step "xcodebuild build（iOS 模拟器）"
   xcodebuild build \
     -scheme "$SCHEME" \
-    -destination "platform=iOS Simulator,name=${DEVICE}" \
+    -destination "id=${SIM_UDID}" \
     -derivedDataPath "$DERIVED" \
     -quiet
 
@@ -61,10 +78,10 @@ run_app() {
   assert_plist "$zh_strings" CFBundleDisplayName "$ZH_DISPLAY_NAME"
 
   step "模拟器实跑冒烟测试"
-  xcrun simctl boot "$DEVICE" 2>/dev/null || true
-  xcrun simctl bootstatus "$DEVICE" >/dev/null
-  xcrun simctl install "$DEVICE" "$APP_PATH"
-  xcrun simctl launch "$DEVICE" "$BUNDLE_ID" >/dev/null
+  xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
+  xcrun simctl bootstatus "$SIM_UDID" >/dev/null
+  xcrun simctl install "$SIM_UDID" "$APP_PATH"
+  xcrun simctl launch "$SIM_UDID" "$BUNDLE_ID" >/dev/null
 
   # 启动即崩的 App 也会「launch 成功」，所以必须隔一会儿再确认进程还在。
   #
@@ -73,7 +90,7 @@ run_app() {
   local listing="" alive=0
   for _ in 1 2 3 4 5; do
     sleep 2
-    listing="$(xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null || true)"
+    listing="$(xcrun simctl spawn "$SIM_UDID" launchctl list 2>/dev/null || true)"
     if [[ "$listing" == *"$BUNDLE_ID"* ]]; then
       alive=1
       break
@@ -83,15 +100,15 @@ run_app() {
   # 「屏幕上能看到一个原生页面」这半条判据只有截图留得下证据，趁进程还在截。
   if (( alive == 1 )); then
     mkdir -p .probe
-    xcrun simctl io "$DEVICE" screenshot --type=png .probe/m1-home.png >/dev/null
+    xcrun simctl io "$SIM_UDID" screenshot --type=png .probe/m1-home.png >/dev/null
     echo "→ 截图 .probe/m1-home.png（不入库，看一眼即可）"
   fi
 
-  xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" >/dev/null 2>&1 || true
+  xcrun simctl terminate "$SIM_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
   (( alive == 1 )) || fail "App 启动后进程已消失（疑似崩溃）"
-  echo "✅ 装得上、起得来、进程存活"
+  echo "✅ 装得上、起得来、进程存活（${SIM_NAME} · iOS ${SIM_RUNTIME}）"
 
-  xcrun simctl shutdown "$DEVICE" >/dev/null 2>&1 || true
+  xcrun simctl shutdown "$SIM_UDID" >/dev/null 2>&1 || true
 }
 
 assert_plist() {

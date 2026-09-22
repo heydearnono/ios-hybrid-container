@@ -18,6 +18,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# 选设备这一段三个脚本共用一份，不各写一遍（见该文件开头的注释）。M1 阶段探针页还没接，
+# 这里还用不到；M2 起 run 分支要先 `select_sim_device "${CRAB_SIM_DEVICE:-}"` 挑出 SIM_UDID，
+# 之后 simctl 一律按它用。现在 source 进来是为了这条路径本身有人走，不是等到 M2 才发现写错。
+# shellcheck source=lib/sim-device.sh
+source "$ROOT/scripts/lib/sim-device.sh"
+
 # slug 顺序即输出顺序，不要重排。右边一列是它由哪个里程碑装上。
 SLUGS=(
   "origin              M2"
