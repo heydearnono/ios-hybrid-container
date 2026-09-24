@@ -5,6 +5,9 @@ import WebKit
 ///
 /// `pro` 的开工文档要求 **M1 一过立刻插队、不等 M2 开工**：iOS 那条是自定义 scheme 的
 /// `location.origin` 到底是不是 opaque，带 host 与不带 host 两种形状各试一次；
+/// 选型时又补了第三种 `crab://ios.crab.invalid`（host 带点、与另两端的 `<端>.crab.invalid` 对齐）。
+/// `storageMarks` 是每种形状各写一个自己的标记再列出看得见的全部标记：只看得见自己那个，
+/// 说明 host 参与了 storage 分区。
 /// 三端共有那条是 `data:` iframe 加不加载得起来，不行就地试 `sandbox` + `srcdoc` 退路。
 ///
 /// **这不是 M2 的承载实现。** 承载 scheme 常量要在 M2 才落成端内唯一一处并配一条可执行检查；
@@ -22,6 +25,7 @@ enum OriginProbe {
     static let shapes: [Shape] = [
         Shape(id: "with-host", url: "crab://app/index.html"),
         Shape(id: "no-host", url: "crab:///index.html"),
+        Shape(id: "dotted-host", url: "crab://ios.crab.invalid/index.html"),
     ]
 
     /// 原生在页面开口前注入的那一段。计数是自增不是重置 —— 跑了两次要看得出来。
@@ -45,6 +49,12 @@ enum OriginProbe {
           var v = localStorage.getItem('probe');
           localStorage.removeItem('probe');
           return v === 'ok' ? 'ok' : 'mismatch:' + v;
+        } catch (e) { return 'throw:' + e.name; }
+      })(),
+      storageMarks: (function () {
+        try {
+          localStorage.setItem('mark:' + (location.host || '(empty)'), '1');
+          return Object.keys(localStorage).filter(function (k) { return k.indexOf('mark:') === 0; }).sort();
         } catch (e) { return 'throw:' + e.name; }
       })(),
       subresource: typeof window.__SUBRESOURCE__ === 'undefined'

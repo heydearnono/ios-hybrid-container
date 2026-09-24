@@ -27,7 +27,44 @@
 要判的同源导航、要落的 storage 分区都对得上；`crab://` 这种空 host 的 origin 形状，
 三端对账时更容易各家理解不一致。定不定由 `pro` 的 M2 拍。
 
-## 原始输出
+## 补测 · 2026-09-24：第三种形状 `crab://ios.crab.invalid`
+
+`pro` 选型时加了第三个候选：host 带点、与另两端的 `and.crab.invalid` / `hm.crab.invalid` 对齐。
+`Spikes/OriginProbe` 加了这一组，并加了 `storageMarks`：每种形状写一个 `mark:<host>` 再列出看得见的
+全部 `mark:*`。命令同上，iPhone 17 Pro · iOS 26.2 模拟器。
+
+| 问题 | `crab://ios.crab.invalid/index.html` |
+| --- | --- |
+| `location.origin` | `crab://ios.crab.invalid`，tuple，不是 `null` |
+| `isSecureContext` | `true` |
+| localStorage | 能写能读回 |
+| 相对路径子资源 | 走到 `WKURLSchemeHandler`、加载成功 |
+| 注入 | `injected: 1`，`injectedOrigin` 与 `location.origin` 一致 |
+| 两个 opaque 子帧 | 与另两种形状相同：起得来、`origin` 为 `null`、没有 `__CRAB__` |
+| **storage 分不分区** | **按 host 分。** 三种形状同一进程、同一个默认 data store，各自只看得见自己的标记（`mark:app` / `mark:(empty)` / `mark:ios.crab.invalid`）。OSLog 里有两轮启动，第二轮时第一轮的标记还在 store 里，仍然只看得见自己的 |
+
+**`pro` 已拍板取这一种**，理由与被否的方案都记在 `pro` 的 M2「备案 · iOS 承载 origin 选型」。
+
+仍然没试的：跨会话留存（这次每种形状每轮都重写自己的标记，证明不了留存）、带 identifier 的
+`WKWebsiteDataStore` 下的行为（M3 的事）。
+
+原始输出（落盘文件，判据取这一条；console 与 OSLog 两条路内容一致，这次也都取回来了）：
+
+```
+# 插队核实 · 承载 origin 形态
+# 2026-09-24T09:06:04Z
+
+with-host crab://app/index.html
+{"origin":"crab://app","href":"crab://app/index.html","baseURI":"crab://app/index.html","isSecureContext":true,"storage":"ok","storageMarks":["mark:app"],"subresource":"loaded","injected":1,"injectedOrigin":"crab://app","frames":{"srcdoc":{"from":"srcdoc","crab":"undefined","origin":"null"},"data":{"from":"data","crab":"undefined","origin":"null"}}}
+
+no-host crab:///index.html
+{"origin":"crab://","href":"crab:///index.html","baseURI":"crab:///index.html","isSecureContext":true,"storage":"ok","storageMarks":["mark:(empty)"],"subresource":"loaded","injected":1,"injectedOrigin":"crab://","frames":{"srcdoc":{"from":"srcdoc","crab":"undefined","origin":"null"},"data":{"from":"data","crab":"undefined","origin":"null"}}}
+
+dotted-host crab://ios.crab.invalid/index.html
+{"origin":"crab://ios.crab.invalid","href":"crab://ios.crab.invalid/index.html","baseURI":"crab://ios.crab.invalid/index.html","isSecureContext":true,"storage":"ok","storageMarks":["mark:ios.crab.invalid"],"subresource":"loaded","injected":1,"injectedOrigin":"crab://ios.crab.invalid","frames":{"srcdoc":{"from":"srcdoc","crab":"undefined","origin":"null"},"data":{"from":"data","crab":"undefined","origin":"null"}}}
+```
+
+## 原始输出（2026-09-17 那一遍）
 
 ### ① 落盘文件（判据取这一条）
 
