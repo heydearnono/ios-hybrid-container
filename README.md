@@ -4,7 +4,7 @@
 标识 `net.xiaoluzhu.crab`，三端同一个字符串。
 
 **规划不在这里。** 要做什么、怎么算过、取值取什么，都在 `pro`
-（`~/Desktop/github/Prospect`）的 README 与 `plan/` 五份里程碑文件。本仓只出实现、验收脚本与运行记录。
+（`~/Work/code/Prospect`）的 README 与 `plan/` 五份里程碑文件。本仓只出实现、验收脚本与运行记录。
 
 ## 跑起来
 
