@@ -13,13 +13,17 @@ struct CrabApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // 唯一的一处分叉：带 `--spike-origin` 起来就跑插队核实那一页。
-            // 一次性验证代码不另起临时工程，但也不许挤进正常路径。
-            if ProcessInfo.processInfo.arguments.contains("--spike-origin") {
+            // 启动参数分叉:一次性 spike 与 M2 探针都不许挤进正常路径(HomeView)。
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("--spike-origin") {
                 OriginProbeView()
+            } else if args.contains("--probe-m2") {
+                ProbeHostView()
             } else {
                 HomeView()
             }
+        }
+    }
         }
     }
 }

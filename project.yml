@@ -17,15 +17,23 @@ options:
     iOS: "26.0"
   minimumXcodeGenVersion: "2.46.0"
 
+# M2 起承载判定(承载 origin 单点定义、路径归一化、host 判定)下沉到本地 Swift 包,
+# 为的是能在宿主 macOS 上秒级 `swift test`。App target 依赖它,判定不再写在只能靠模拟器验的 target 里。
+packages:
+  CrabHosting:
+    path: Packages/CrabHosting
+
 targets:
   Crab:
     type: application
     platform: iOS
     sources:
       - path: App
-      # 一次性验证代码。`pro` 的开工文档要求插队核实在自己那个壳子里跑，不另起临时工程；
+      # 一次性验证代码。`pro` 的开工文档要求插队核实在自己那个壳子里跑,不另起临时工程;
       # 放独立目录是为了让「App/ 下不碰 WebView」这条还看得出来。
       - path: Spikes
+    dependencies:
+      - package: CrabHosting
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.xiaoluzhu.crab
