@@ -127,7 +127,7 @@ for entry in "${SLUGS[@]}"; do
     [[ "$value" == "PASS" ]] || fail=1
   else
     pending=1
-    pending_lines+=("$slug（$milestone）")
+    pending_lines+=("${slug}（${milestone}）")
   fi
 done
 
