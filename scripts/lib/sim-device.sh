@@ -80,5 +80,6 @@ select_sim_device() {
   fi
 
   IFS=$'\t' read -r SIM_NAME SIM_RUNTIME SIM_UDID <<<"$picked"
-  printf '→ 模拟器：%s · iOS %s · %s\n' "$SIM_NAME" "$SIM_RUNTIME" "$SIM_UDID"
+  # 选中结果是诊断信息，走 stderr —— probe.sh 的 stdout 要严格只有一行一条 <slug>（pro 的输出规约）。
+  printf '→ 模拟器：%s · iOS %s · %s\n' "$SIM_NAME" "$SIM_RUNTIME" "$SIM_UDID" >&2
 }

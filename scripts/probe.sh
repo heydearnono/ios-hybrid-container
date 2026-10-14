@@ -6,10 +6,10 @@
 # slug 与行的顺序固定，就是 pro 的文档顺序：M2 六条、M3 两条、M4 八条，合计十六条。
 # 规约在 pro 的 plan/M2-本地承载.md 最后一节，改要三端一起改，本仓不自定。
 #
-# 现状（M2）：承载前六条已接上，由本脚本在模拟器上跑出 PASS / FAIL。
-# M3 两条、M4 八条还没实现——它们**不打印任何 PASS / FAIL**，走 stderr 列出，
+# 现状（M3）：M2 承载六条 + M3 注入两条（inject-order、inject-scope）已接上，由本脚本在模拟器上
+# 跑出 PASS / FAIL。M4 八条还没实现——它们**不打印任何 PASS / FAIL**，走 stderr 列出，
 # 因为假的 PASS 会污染对账记录，而 FAIL 的意思是「断言跑了没过」，不是「还没写」。
-# 还有未实现条目时，命令以退出码 2 收场；六条里只要有一条 FAIL（或没跑出来），退出码 1。
+# 还有未实现条目时，命令以退出码 2 收场；已实现的里只要有一条 FAIL（或没跑出来），退出码 1。
 #
 # M4 那几条要人先按按钮、答对话框、触发一次后退，人工那一遍在本命令之前跑完；
 # 本命令只把页面侧与原生日志侧的结果收齐并判定，不代按。
@@ -59,7 +59,10 @@ esac
 BUNDLE_ID="net.xiaoluzhu.crab"
 DERIVED=".build/xcode"
 APP_PATH="${DERIVED}/Build/Products/Debug-iphonesimulator/Crab.app"
-RESULT_NAME="m2-probe.txt"
+RESULT_NAME="probe-result.txt"
+
+# 已实现、要去结果文件里取 PASS/FAIL 的 slug。其余（M4 八条）仍未实现，走 stderr。
+IMPLEMENTED=" origin storage subresource intercept escape escape-encoded inject-order inject-scope "
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1" >&2; }
 
@@ -79,12 +82,12 @@ xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
 xcrun simctl bootstatus "$SIM_UDID" >/dev/null
 xcrun simctl install "$SIM_UDID" "$APP_PATH" >&2
 
-step "起一次 --probe-m2，等页面把六条判完落盘"
+step "起一次 --probe，等页面把八条判完落盘"
 # 清掉上一轮的结果，免得读到旧的。
 container="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" data 2>/dev/null || true)"
 [[ -n "$container" ]] && rm -f "${container}/Documents/${RESULT_NAME}"
 
-xcrun simctl launch --terminate-running-process "$SIM_UDID" "$BUNDLE_ID" --probe-m2 >&2
+xcrun simctl launch --terminate-running-process "$SIM_UDID" "$BUNDLE_ID" --probe >&2
 
 # 轮询结果文件出现（断言里有 fetch，异步）。最多 ~20s。
 result=""
@@ -117,11 +120,11 @@ pending_lines=()
 
 for entry in "${SLUGS[@]}"; do
   read -r slug milestone _rest <<<"$entry"
-  if [[ "$milestone" == "M2" ]]; then
+  if [[ "$IMPLEMENTED" == *" ${slug} "* ]]; then
     value="$(awk -v s="$slug" '$1==s{print $2}' "$result" || true)"
     if [[ -z "$value" ]]; then
       value="FAIL"
-      echo "   （$slug 没在结果文件里，判 FAIL，不编造）" >&2
+      echo "   （${slug} 没在结果文件里，判 FAIL，不编造）" >&2
     fi
     printf '%s %s\n' "$slug" "$value"
     [[ "$value" == "PASS" ]] || fail=1

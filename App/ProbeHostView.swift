@@ -3,16 +3,15 @@ import WebKit
 import OSLog
 import CrabHosting
 
-/// M2 探针宿主:把承载跑起来,页面侧六条断言的结果收回来,落盘给 `scripts/probe.sh` 回读。
+/// 探针宿主:把承载 + M3 配置跑起来,页面侧八条断言的结果收回来,落盘给 `scripts/probe.sh` 回读。
 ///
-/// 带 `--probe-m2` 启动参数时由 `CrabApp` 挂上。正常路径(HomeView)进不来 —— M1 的原生壳子那条分叉
-/// 还在,这里是 M2 起多出来的一条。
+/// 带 `--probe` 启动参数时由 `CrabApp` 挂上。正常路径(HomeView)进不来。
 struct ProbeHostView: View {
-    @State private var model = M2ProbeModel()
+    @State private var model = CrabProbeModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("M2 · 本地承载探针")
+            Text("M2/M3 探针")
                 .font(.headline)
             ProbeWebView(model: model)
                 .border(.quaternary)
@@ -22,74 +21,76 @@ struct ProbeHostView: View {
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 160)
+            .frame(height: 220)
         }
         .padding(12)
     }
 }
 
-/// 收结果、落盘、打日志。落盘那条是 `probe.sh` 回读的判据(`simctl get_app_container ... data` 直接读);
-/// OSLog 那条顺带留一份,和 M4 靠日志判的那几条走同一条路。
+/// 收结果、落盘、打日志。落盘那条是 `probe.sh` 回读的判据;OSLog 顺带留一份。
 @MainActor
 @Observable
-final class M2ProbeModel {
-    private(set) var results: [String: String] = [:]
+final class CrabProbeModel {
+    private(set) var lines: [String] = []
     private let logger = Logger(subsystem: "net.xiaoluzhu.crab", category: "probe")
 
-    var report: String {
-        M2Probe.slugs
-            .map { "\($0) \(results[$0] ?? "（还没回来）")" }
-            .joined(separator: "\n")
-    }
+    var report: String { lines.joined(separator: "\n") }
 
-    func record(_ parsed: [String: String]) {
-        results = parsed
-        var lines: [String] = []
-        for slug in M2Probe.slugs {
+    /// `parsed` 是八条 slug 的结果;`ua` / `ls` / `persist` 是 M3 那几行打印,接在结果文件末尾
+    /// (以 `#` 起头,不与 slug 行相混,`probe.sh` 的 awk 只认 slug)。
+    func record(parsed: [String: String], ua: String, ls: String, persist: String) {
+        var out: [String] = []
+        for slug in CrabProbe.slugs {
             let value = parsed[slug] ?? "FAIL"
-            let line = "\(slug) \(value)"
-            lines.append(line)
-            logger.log("CRAB-PROBE \(line, privacy: .public)")
+            out.append("\(slug) \(value)")
+            logger.log("CRAB-PROBE \(slug, privacy: .public) \(value, privacy: .public)")
         }
-        write(lines.joined(separator: "\n") + "\n")
+        out.append("# ua \(ua)")
+        out.append("# localStorage \(ls)")
+        out.append("# persist \(persist)")
+        logger.log("CRAB-PROBE ua \(ua, privacy: .public)")
+        logger.log("CRAB-PROBE persist \(persist, privacy: .public)")
+        lines = out
+        write(out.joined(separator: "\n") + "\n")
     }
 
     func recordError(_ message: String) {
         logger.log("CRAB-PROBE error \(message, privacy: .public)")
+        lines = ["# error \(message)"]
         write("# error \(message)\n")
     }
 
     private func write(_ text: String) {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let file = docs.appendingPathComponent(M2Probe.resultFileName)
-        try? text.write(to: file, atomically: true, encoding: .utf8)
+        try? text.write(to: docs.appendingPathComponent(CrabProbe.resultFileName), atomically: true, encoding: .utf8)
     }
 }
 
-/// 一个 WKWebView 把承载页加载起来。配置对象在创建实例时被拷贝,所以 handler 必须在创建之前挂上
-/// (插队核实那一遍已踩过这条,见 docs/运行记录/插队核实-承载origin.md)。
+/// 一个 WKWebView 把承载页加载起来。配置经 `CrabWebViewConfig` 建好 —— 六项配置、注入、UA、
+/// 带 identifier 的 store 都在创建之前落定;缩放与 http 拦截规则在创建之后、`load` 之前补上。
 private struct ProbeWebView: UIViewRepresentable {
-    let model: M2ProbeModel
+    let model: CrabProbeModel
 
     func makeCoordinator() -> Coordinator { Coordinator(model: model) }
 
     func makeUIView(context: Context) -> WKWebView {
         do {
-            try M2Probe.materialize()
+            try CrabProbe.materialize()
         } catch {
             model.recordError("materialize 失败: \(error)")
         }
 
-        let configuration = WKWebViewConfiguration()
-        configuration.setURLSchemeHandler(
-            CrabSchemeHandler(root: M2Probe.hostingRoot()),
-            forURLScheme: HostingOrigin.scheme
-        )
-
+        let configuration = CrabWebViewConfig.makeConfiguration(hostingRoot: CrabProbe.hostingRoot())
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.isInspectable = true
-        webView.load(URLRequest(url: URL(string: HostingOrigin.origin + "/index.html")!))
+        CrabWebViewConfig.disableZoom(on: webView)
+
+        // http 拦截规则异步编译，编好再加载，保证规则在首次导航前就位。
+        Task { @MainActor in
+            await CrabWebViewConfig.applyHTTPBlockRule(to: webView)
+            webView.load(URLRequest(url: URL(string: HostingOrigin.origin + "/index.html")!))
+        }
         return webView
     }
 
@@ -97,9 +98,9 @@ private struct ProbeWebView: UIViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate {
-        private let model: M2ProbeModel
+        private let model: CrabProbeModel
 
-        init(model: M2ProbeModel) { self.model = model }
+        init(model: CrabProbeModel) { self.model = model }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             poll(webView, attempt: 0)
@@ -117,28 +118,36 @@ private struct ProbeWebView: UIViewRepresentable {
             model.recordError("didFailProvisional: \(error)")
         }
 
-        /// 断言里有 fetch,是异步的,所以轮询等页面把 __CRAB_PROBE_DONE__ 置上再取结果。
+        /// 断言里有 fetch 与子帧 postMessage,都是异步的,所以轮询等页面把 done 置上再取结果。
         private func poll(_ webView: WKWebView, attempt: Int) {
-            let maxAttempts = 20 // 20 × 400ms ≈ 8s
+            let maxAttempts = 25 // 25 × 400ms = 10s
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(400))
-                let js = "(\(M2Probe.doneGlobal) === true) ? JSON.stringify(\(M2Probe.resultGlobal)) : ''"
+                let js = """
+                (\(CrabProbe.doneGlobal) === true)
+                  ? JSON.stringify({ r: \(CrabProbe.resultGlobal), ua: \(CrabProbe.uaGlobal), ls: \(CrabProbe.lsGlobal), persist: \(CrabProbe.persistGlobal) })
+                  : ''
+                """
                 let value = try? await webView.evaluateJavaScript(js)
                 let json = (value as? String) ?? ""
                 if json.isEmpty {
                     if attempt + 1 >= maxAttempts {
-                        model.recordError("超时:页面没有在限时内置上 \(M2Probe.doneGlobal)")
+                        model.recordError("超时:页面没有在限时内置上 \(CrabProbe.doneGlobal)")
                     } else {
                         poll(webView, attempt: attempt + 1)
                     }
                     return
                 }
-                if let data = json.data(using: .utf8),
-                   let parsed = try? JSONDecoder().decode([String: String].self, from: data) {
-                    model.record(parsed)
-                } else {
+                guard let data = json.data(using: .utf8),
+                      let top = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let r = top["r"] as? [String: String] else {
                     model.recordError("结果 JSON 解析失败: \(json)")
+                    return
                 }
+                let ua = (top["ua"] as? String) ?? "(absent)"
+                let ls = (top["ls"] as? String) ?? "(absent)"
+                let persist = (top["persist"] as? String) ?? "(absent)"
+                model.record(parsed: r, ua: ua, ls: ls, persist: persist)
             }
         }
     }

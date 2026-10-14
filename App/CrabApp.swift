@@ -13,12 +13,14 @@ struct CrabApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // 启动参数分叉:一次性 spike 与 M2 探针都不许挤进正常路径(HomeView)。
+            // 启动参数分叉:一次性 spike 与探针都不许挤进正常路径(HomeView)。
             let args = ProcessInfo.processInfo.arguments
             if args.contains("--spike-origin") {
                 OriginProbeView()
-            } else if args.contains("--probe-m2") {
+            } else if args.contains("--probe") {
                 ProbeHostView()
+            } else if args.contains("--probe-diff") {
+                ProbeDiffView()
             } else {
                 HomeView()
             }
